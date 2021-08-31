@@ -60,7 +60,7 @@ $(BIN)/libvideoio.a: $(BIN)/loopback.o
 $(BIN)/%.o: lib/%.cc $(TFDOWN)
 	g++ $< ${CFLAGS} ${TFCFLAGS} -c -o $@
 
-$(BIN)/%.o: videoio/%.cc $(TFDOWN)
+$(BIN)/%.o: app/videoio $(TFDOWN)
 	g++ $< ${CFLAGS} ${TFCFLAGS} -c -o $@
 
 $(BIN)/%.o: app/%.cc $(TFDOWN)

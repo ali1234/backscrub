@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(backscrub CXX)
+project(Backscrub CXX)
 
 # allow override of Tensorflow location
 if(NOT DEFINED TENSORFLOW)
@@ -23,7 +23,7 @@ message("Version: ${DEEPSEG_VERSION}")
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 # use local platform OpenCV libraries
-find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs video videoio highgui)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs video highgui)
 
 # use .gitmodules defined Tensorflow version unless a path was provided
 if (TF_CHECKOUT)
@@ -54,89 +54,27 @@ add_subdirectory(${TENSORFLOW}/tensorflow/lite
 add_compile_definitions(DEEPSEG_VERSION=${DEEPSEG_VERSION})
 include_directories(BEFORE .)
 
-add_library(backscrub
+add_library(libbackscrub STATIC
   lib/libbackscrub.cc
   lib/transpose_conv_bias.cc)
+# don't add lib prefix as the name already has it
+set_target_properties(libbackscrub PROPERTIES PREFIX "")
 
-set_target_properties(backscrub PROPERTIES PUBLIC_HEADER "lib/libbackscrub.h")
+set_target_properties(libbackscrub PROPERTIES PUBLIC_HEADER "lib/libbackscrub.h")
+target_include_directories(libbackscrub PUBLIC lib)
 
-target_link_libraries(backscrub
+target_link_libraries(libbackscrub
   tensorflow-lite ${CMAKE_DL_LIBS}
   opencv_core
   opencv_imgproc
 )
 
-# We don't build the Linux-specific wrapper application on Windows
-if(NOT WIN32)
-add_library(videoio
-  videoio/loopback.cc)
-
-target_link_libraries(videoio)
-
-add_executable(deepseg
-  app/deepseg.cc
-)
-
-set_target_properties(deepseg PROPERTIES OUTPUT_NAME backscrub)
-
-target_link_libraries(deepseg
-  backscrub
-  videoio
-  opencv_core
-  opencv_video
-  opencv_videoio
-  opencv_imgproc
-  opencv_imgcodecs
-  opencv_highgui
-)
-endif()
-
-# Export our library, and all transitive dependencies - sadly Tensorflow Lite's
-# CMakeLists.txt does not export these for us
-function(get_link_libraries target outlist)
-  message(STATUS "get_link_libraries(${target} ${outlist})")
-  # recursive dependency munger, feed with a name and a list to extend
-  get_target_property(target_type ${target} TYPE)
-  if(${target_type} STREQUAL "INTERFACE_LIBRARY")
-    get_target_property(libs ${target} INTERFACE_LINK_LIBRARIES)
-  else()
-    get_target_property(libs ${target} LINK_LIBRARIES)
-  endif()
-  foreach(lib IN LISTS libs)
-    if(NOT TARGET ${lib})
-      continue()
-    endif()
-    get_target_property(unalias ${lib} ALIASED_TARGET)
-	if("${unalias}" STREQUAL "unalias-NOTFOUND")
-      set(unalias ${lib})
-    endif()
-	get_target_property(imp ${unalias} IMPORTED)
-	if(${imp})
-	  continue()
-	endif()
-    list(FIND ${outlist} ${unalias} exists)
-    if(NOT exists EQUAL -1)
-      continue()
-    endif()
-    list(APPEND ${outlist} ${unalias})
-    get_link_libraries(${unalias} ${outlist})
-    set(${outlist} ${${outlist}} PARENT_SCOPE)
-  endforeach()
-endfunction()
-
-set(BACKSCRUB_DEPS "")
-get_link_libraries(backscrub BACKSCRUB_DEPS)
-
-export(TARGETS
-  backscrub
-  ${BACKSCRUB_DEPS}
-  FILE BackscrubTargets.cmake)
-
 # installation names for library, header and models
-if(NOT WIN32)
-install(TARGETS deepseg)
-endif()
-install(TARGETS backscrub)
+install(TARGETS libbackscrub)
 install(DIRECTORY models
   DESTINATION ${CMAKE_INSTALL_PREFIX}/share/backscrub
   FILES_MATCHING PATTERN "*.tflite" PATTERN "*.md")
+
+if(NOT WIN32) # shouldn't this be "if linux" since the app uses v4l?
+    add_subdirectory(app)
+endif()
