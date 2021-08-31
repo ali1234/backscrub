@@ -58,6 +58,8 @@ add_library(backscrub
   lib/libbackscrub.cc
   lib/transpose_conv_bias.cc)
 
+set_target_properties(backscrub PROPERTIES PUBLIC_HEADER "lib/libbackscrub.h")
+
 target_link_libraries(backscrub
   tensorflow-lite ${CMAKE_DL_LIBS}
   opencv_core
@@ -135,7 +137,6 @@ if(NOT WIN32)
 install(TARGETS deepseg)
 endif()
 install(TARGETS backscrub)
-install(FILES lib/libbackscrub.h DESTINATION include/backscrub)
 install(DIRECTORY models
   DESTINATION ${CMAKE_INSTALL_PREFIX}/share/backscrub
   FILES_MATCHING PATTERN "*.tflite" PATTERN "*.md")
